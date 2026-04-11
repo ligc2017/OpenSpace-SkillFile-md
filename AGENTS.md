@@ -30,3 +30,5 @@ When making function calls using tools that accept array or object parameters en
 <example_complex_tool>
 <parameter>[{"color": "orange", "options": {"option_key_1": true, "option_key_2": "value"}}, {"color": "purple", "options": {"option_key_1": true, "option_key_2": "value"}}]</parameter>
 </example_complex_tool>
+
+<!-- sync test -->
