@@ -1,6 +1,5 @@
-# 忽略所有文件，只追踪 AGENTS.md
-*
-
-# 例外：保留 AGENTS.md 和 .gitignore 本身
-!AGENTS.md
+# 追踪所有 SKILL.md 技能文件和元数据
+!*/
+!*/SKILL.md
+!README.md
 !.gitignore
