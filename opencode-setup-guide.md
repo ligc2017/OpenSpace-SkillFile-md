@@ -45,6 +45,20 @@ python --version
 git --version
 ```
 
+### 配置 Git 全局用户信息（必做，否则无法 commit）
+
+```powershell
+git config --global user.name "ligc2017"
+git config --global user.email "2317859012@qq.com"
+```
+
+验证：
+
+```powershell
+git config --global --list
+# 应输出 user.name=ligc2017 和 user.email=2317859012@qq.com
+```
+
 ---
 
 ## 第一步：安装 OpenCode
@@ -240,9 +254,13 @@ npx oh-my-opencode install --no-tui --claude=no --openai=no --gemini=no --copilo
 ssh-keygen -t ed25519 -C "opencode-agents" -f "$env:USERPROFILE\.ssh\id_ed25519_github" -q -N '""'
 ```
 
-### 7.2 配置 SSH（使用 443 端口，绕过防火墙）
+### 7.2 配置 SSH
+
+新建 SSH config 文件，使用 **443 端口**（绕过防火墙）并指定密钥：
 
 ```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.ssh" | Out-Null
+
 @"
 Host github.com
     HostName ssh.github.com
@@ -252,6 +270,9 @@ Host github.com
     IdentitiesOnly yes
 "@ | Set-Content "$env:USERPROFILE\.ssh\config" -Encoding UTF8
 ```
+
+> **为什么用 443 端口**：普通 SSH 走 22 端口，很多网络环境（公司/学校/部分代理）会屏蔽 22 端口。
+> 443 端口是 HTTPS 端口，几乎不会被屏蔽。
 
 ### 7.3 查看公钥，添加到 GitHub
 
@@ -274,6 +295,48 @@ ssh -T git@github.com -o StrictHostKeyChecking=no
 ```
 
 看到 `Hi ligc2017! You've successfully authenticated` 即成功。
+
+### 7.5 如果开了代理（VPN/Clash/v2ray）仍然连不上
+
+**问题原因**：SSH 协议默认不走系统代理，即使你的代理软件已经开启，SSH 连接仍然走直连。
+
+**解决方案**：让 SSH 通过代理连接 GitHub。
+
+首先确认你的代理本地端口（通常是以下之一）：
+- Clash：`7890`（或 `7891`）
+- v2rayN：`10808`（或 `1080`）
+- 其他：查看代理软件设置里的"本地端口"
+
+然后更新 SSH config，加入 `ProxyCommand`：
+
+```powershell
+# 先安装 ncat（netcat，用于 SSH 代理转发）
+# 如果已安装 Git for Windows，ncat 通常在这里：
+# C:\Program Files\Git\usr\bin\ncat.exe
+
+# 方法一：使用 ncat（Git 自带）
+@"
+Host github.com
+    HostName ssh.github.com
+    Port 443
+    User git
+    IdentityFile $env:USERPROFILE/.ssh/id_ed25519_github
+    IdentitiesOnly yes
+    ProxyCommand "C:\Program Files\Git\usr\bin\ncat.exe" --proxy 127.0.0.1:7890 --proxy-type socks5 %h %p
+"@ | Set-Content "$env:USERPROFILE\.ssh\config" -Encoding UTF8
+```
+
+> 把 `7890` 换成你实际的代理端口。
+
+验证：
+
+```powershell
+ssh -T git@github.com -o StrictHostKeyChecking=no -v 2>&1 | Select-String "connect|auth|debug"
+```
+
+**如果不想用代理连接 GitHub**（代理只用于上网，GitHub 走直连）：
+
+在代理软件里把 `github.com` 加入**直连名单/绕过列表**，不走代理，然后用 443 端口的 SSH 直连通常也能成功。
 
 ---
 
@@ -576,6 +639,59 @@ C:\OpenSpace\                   # OpenSpace 官方仓库克隆
 ### Q: Windows 10 和 Windows 11 安装步骤有区别吗？
 没有区别，所有命令完全相同。唯一差异是 Windows 10 需要手动添加 npm 路径到环境变量（第一步有说明）。
 
+### Q: git commit 时报错"Please tell me who you are"？
+忘记配置 git 用户信息了，执行：
+```powershell
+git config --global user.name "ligc2017"
+git config --global user.email "2317859012@qq.com"
+```
+
+### Q: 公钥已经添加到 GitHub，但 ssh -T git@github.com 还是连不上？
+
+**第一步：确认用的是正确的密钥文件**
+```powershell
+# 检查 SSH config 里的密钥路径是否存在
+Test-Path "$env:USERPROFILE\.ssh\id_ed25519_github"
+# 应输出 True
+
+# 检查 SSH config 内容
+cat "$env:USERPROFILE\.ssh\config"
+```
+
+**第二步：开启了代理（Clash/v2ray/VPN）的情况**
+
+SSH 默认不走系统代理，即使代理开着也不起作用。有两个解法：
+
+- **方案 A（推荐）**：在代理软件里把 `github.com` 加入**直连/绕过列表**，让 SSH 走直连 + 443 端口
+- **方案 B**：让 SSH 通过代理转发（需要 ncat）：
+
+```powershell
+# 把 7890 换成你的代理本地端口（Clash 默认 7890，v2rayN 默认 10808）
+@"
+Host github.com
+    HostName ssh.github.com
+    Port 443
+    User git
+    IdentityFile $env:USERPROFILE/.ssh/id_ed25519_github
+    IdentitiesOnly yes
+    ProxyCommand "C:\Program Files\Git\usr\bin\ncat.exe" --proxy 127.0.0.1:7890 --proxy-type socks5 %h %p
+"@ | Set-Content "$env:USERPROFILE\.ssh\config" -Encoding UTF8
+```
+
+**第三步：查看详细错误信息**
+```powershell
+ssh -T git@github.com -o StrictHostKeyChecking=no -v 2>&1 | Select-String -Pattern "connect|auth|Permission|timeout|proxy"
+```
+
+常见错误对照：
+
+| 错误信息 | 原因 | 解决 |
+|---------|------|------|
+| `Permission denied (publickey)` | 公钥没加到 GitHub，或用了错误的密钥文件 | 检查 GitHub 设置里是否有该公钥；检查 SSH config 里密钥路径 |
+| `Connection timed out` | 网络不通，或代理拦截了 SSH | 换方案 A/B |
+| `Connection refused` | 22 端口被封，但 config 没写 443 | 检查 SSH config 是否有 `Port 443` |
+| `Could not resolve hostname` | DNS 问题 | 检查代理设置，或手动 `nslookup ssh.github.com` |
+
 ### Q: 集显笔记本上 Ollama 提取速度很慢怎么办？
 退出 opencode 后提取在后台异步进行，不阻塞终端。用 `oclog -f` 观察进度。
 如果想更快，换 `1.5b` 模型（速度翻倍，质量略降但对技能提取够用）。
@@ -588,18 +704,24 @@ C:\OpenSpace\                   # OpenSpace 官方仓库克隆
 
 ### Q: 如何在新电脑上快速确认整个流程正常？
 ```powershell
-# 1. 确认 Ollama 正在运行
+# 1. 确认 git 用户信息
+git config --global --list
+
+# 2. 确认 SSH 连接 GitHub
+ssh -T git@github.com -o StrictHostKeyChecking=no
+
+# 3. 确认 Ollama 正在运行
 ollama list
 
-# 2. 检测最近 session 是否需要提取
+# 4. 检测最近 session 是否需要提取
 python "$env:USERPROFILE\.config\opencode\extract_skill.py" --check-only
 
-# 3. 查看后台日志
+# 5. 查看后台日志
 oclog
 ```
 
 ### Q: extract_skill.py 里的路径也是硬编码 Administrator 怎么办？
-第九步拉取脚本后执行以下命令自动修复所有路径：
+第八步拉取脚本后执行以下命令自动修复所有路径：
 ```powershell
 $file = "$env:USERPROFILE\.config\opencode\extract_skill.py"
 (Get-Content $file) -replace 'C:\\\\Users\\\\Administrator', $env:USERPROFILE.Replace('\','\\') | Set-Content $file -Encoding UTF8
