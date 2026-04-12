@@ -257,35 +257,35 @@ npx oh-my-opencode install --no-tui --claude=no --openai=no --gemini=no --copilo
 
 ---
 
-### 方案 A：恢复原私钥（推荐迁移场景）
+### 方案 A：从仓库解密恢复私钥（推荐迁移场景）
 
-**原理**：主力机的私钥 + 公钥已经添加到 GitHub，直接把这对密钥复制到新机器，GitHub 就能认出来，无需任何 GitHub 操作。
+**原理**：私钥已用 AES-256 加密后存入 GitHub 仓库（`id_ed25519_github.enc`），新机器拉取仓库后用密码解密还原，无需 U 盘传输，也无需再次添加到 GitHub。
 
-**第一步**：在新机器上创建 `.ssh` 目录：
+> **前提**：需要知道加密时设置的密码。私钥本身不会以明文形式存在仓库中。
+
+**第一步**：确保已完成第八步（A）拉取仓库，然后创建 `.ssh` 目录：
 
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.ssh" | Out-Null
 ```
 
-**第二步**：从主力机（U 盘 / 局域网共享 / 其他方式）复制以下两个文件到新机器的 `%USERPROFILE%\.ssh\`：
+**第二步**：解密还原私钥（需要输入加密密码）：
 
-```
-id_ed25519_github      ← 私钥（无后缀，重要！）
-id_ed25519_github.pub  ← 公钥（可选，方便查看）
-```
+```powershell
+# Git 自带 openssl，无需额外安装
+$opensslExe = "C:\Program Files\Git\usr\bin\openssl.exe"
+$encFile = "$env:USERPROFILE\.config\opencode\id_ed25519_github.enc"
+$keyFile = "$env:USERPROFILE\.ssh\id_ed25519_github"
 
-> **主力机文件位置**：`C:\Users\Administrator\.ssh\id_ed25519_github`
->
-> **公钥内容**（已添加到 GitHub，供对照验证）：
-> ```
-> ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOOg5fYXL1iR71jIzZPWwRK+wT7f+4Ld6qs15T1ol1jV ligc2017@github-opencode-agents
-> ```
+# 执行解密（会提示输入密码）
+& $opensslExe enc -d -aes-256-cbc -pbkdf2 -iter 100000 -in $encFile -out $keyFile
+Write-Host "Private key restored to: $keyFile"
+```
 
 **第三步**：设置私钥文件权限（Windows 必须，否则 SSH 拒绝使用）：
 
 ```powershell
 $keyFile = "$env:USERPROFILE\.ssh\id_ed25519_github"
-# 移除继承权限，只保留当前用户的完全控制
 icacls $keyFile /inheritance:r /grant:r "${env:USERNAME}:F" | Out-Null
 ```
 
