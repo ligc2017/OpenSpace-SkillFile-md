@@ -71,11 +71,31 @@ C:\Users\Administrator\.config\opencode\CONTINUITY.md
 2. 如果有未完成任务（`- [ ]`），**立即开始执行**，无需等用户再次说明
 3. 完成后将对应任务标记为 `- [x]`，并更新文件
 
+### 会话开启时自动技能检测（强制）
+
+**每次对话开始的第一件事**（在处理任何用户请求之前），必须执行技能提取检测：
+
+```bash
+python C:\Users\Administrator\.config\opencode\extract_skill.py --check-only
+```
+
+**判断规则：**
+- 如果输出包含 `NEEDS PROCESSING`：**立即在后台触发提取**（不阻塞用户交互）：
+  ```bash
+  Start-Job { python C:\Users\Administrator\.config\opencode\extract_skill.py }
+  ```
+  提取完成后告知用户："已从上次会话自动提取技能并推送到 GitHub"
+- 如果输出包含 `SKIP`：静默跳过，不打扰用户
+
+**设计原理（时间判断逻辑）：**
+- `session.time_updated`（会话最后活跃时间）> skills 目录最新 git commit 时间 → 说明关闭会话后还没提取
+- `extracted_sessions.json` 记录已处理过的 session ID，防止重复提取
+
 ### 自动技能提取说明
 - `opencode-launch.ps1` 启动时会开启 FileSystemWatcher 后台进程监听 skills 目录
-- opencode 退出后自动调用 `extract_skill.py` 分析最近对话，用 Ollama 提取可复用技能
 - 新写入的 SKILL.md 会被 watcher 自动 `git push` 到 GitHub
 - 提取脚本路径：`C:\Users\Administrator\.config\opencode\extract_skill.py`
+- 已提取记录：`C:\Users\Administrator\.config\opencode\extracted_sessions.json`
 - 使用模型：`qwen2.5-coder:14b`（本地 Ollama）
 
 When making function calls using tools that accept array or object parameters ensure those are structured using JSON. For example:
