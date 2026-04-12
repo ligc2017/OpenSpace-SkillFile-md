@@ -482,6 +482,38 @@ git -C $skillsDir log --oneline -5
 
 ---
 
+## 第八步（C）：修复脚本中的硬编码路径（新机器必做）
+
+从 GitHub 拉取的脚本是在 `Administrator` 账户下编写的，**如果新机器用户名不是 `Administrator`**，需要一键替换所有脚本中的残留路径。
+
+```powershell
+$configDir = "$env:USERPROFILE\.config\opencode"
+$oldPath   = "C:\\Users\\Administrator"
+$newPath   = $env:USERPROFILE.Replace("\", "\\")
+
+# 替换所有 .ps1 和 .py 文件中的硬编码路径
+Get-ChildItem "$configDir\*.ps1", "$configDir\*.py" | ForEach-Object {
+    $content = Get-Content $_.FullName -Raw
+    if ($content -match [regex]::Escape("C:\Users\Administrator")) {
+        ($content -replace [regex]::Escape($oldPath), $newPath) |
+            Set-Content $_.FullName -Encoding UTF8 -NoNewline
+        Write-Host "Fixed: $($_.Name)"
+    }
+}
+```
+
+> **如果用户名就是 `Administrator`**：直接跳过这步，无需执行。
+
+验证替换结果：
+
+```powershell
+# 确认 opencode-launch.ps1 里已没有 Administrator 字样
+Select-String -Path "$env:USERPROFILE\.config\opencode\opencode-launch.ps1" -Pattern "Administrator"
+# 应无输出（空输出 = 替换成功）
+```
+
+---
+
 ## 第九步：修改 extract_skill.py 中的模型（集显笔记本必做）
 
 拉取完成后，`extract_skill.py` 默认使用 `qwen2.5-coder:14b`。集显笔记本需修改：

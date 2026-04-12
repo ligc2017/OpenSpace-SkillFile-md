@@ -1,8 +1,8 @@
 # opencode-launch.ps1
 # All git sync and skill extraction run in background - user enters opencode immediately.
-# Logs: C:\Users\Administrator\.config\opencode\launch.log
+# Logs: $env:USERPROFILE\.config\opencode\launch.log
 
-$ConfigDir = "C:\Users\Administrator\.config\opencode"
+$ConfigDir = "$env:USERPROFILE\.config\opencode"
 $LogFile   = "$ConfigDir\launch.log"
 
 function Write-Log {
