@@ -288,6 +288,14 @@ cat "$env:USERPROFILE\.ssh\id_ed25519_github.pub"
 4. Key：粘贴上面复制的公钥
 5. 点击 **Add SSH key**
 
+> **当前主力机公钥**（Administrator@本机，已添加到 GitHub）：
+>
+> ```
+> ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOOg5fYXL1iR71jIzZPWwRK+wT7f+4Ld6qs15T1ol1jV ligc2017@github-opencode-agents
+> ```
+>
+> **新机器迁移时**：如果不想重新生成密钥，可以直接复制主力机的 `id_ed25519_github`（私钥）和 `id_ed25519_github.pub`（公钥）到新机器的 `%USERPROFILE%\.ssh\` 目录，无需再次添加到 GitHub。
+
 ### 7.4 验证连接
 
 ```powershell
