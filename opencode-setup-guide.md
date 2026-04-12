@@ -246,21 +246,52 @@ npx oh-my-opencode install --no-tui --claude=no --openai=no --gemini=no --copilo
 
 ---
 
-## 第七步：生成 SSH 密钥并添加到 GitHub
+## 第七步：配置 SSH 密钥连接 GitHub
 
-### 7.1 生成密钥
+**在开始之前，先选择你的路径：**
 
-```powershell
-ssh-keygen -t ed25519 -C "opencode-agents" -f "$env:USERPROFILE\.ssh\id_ed25519_github" -q -N '""'
-```
+| 场景 | 推荐方案 |
+|------|---------|
+| 新电脑，想直接复用主力机密钥（无需再次添加到 GitHub） | → **方案 A：恢复原私钥** |
+| 新电脑，想为这台机器单独生成一对新密钥 | → **方案 B：生成新密钥并添加到 GitHub** |
 
-### 7.2 配置 SSH
+---
 
-新建 SSH config 文件，使用 **443 端口**（绕过防火墙）并指定密钥：
+### 方案 A：恢复原私钥（推荐迁移场景）
+
+**原理**：主力机的私钥 + 公钥已经添加到 GitHub，直接把这对密钥复制到新机器，GitHub 就能认出来，无需任何 GitHub 操作。
+
+**第一步**：在新机器上创建 `.ssh` 目录：
 
 ```powershell
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.ssh" | Out-Null
+```
 
+**第二步**：从主力机（U 盘 / 局域网共享 / 其他方式）复制以下两个文件到新机器的 `%USERPROFILE%\.ssh\`：
+
+```
+id_ed25519_github      ← 私钥（无后缀，重要！）
+id_ed25519_github.pub  ← 公钥（可选，方便查看）
+```
+
+> **主力机文件位置**：`C:\Users\Administrator\.ssh\id_ed25519_github`
+>
+> **公钥内容**（已添加到 GitHub，供对照验证）：
+> ```
+> ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOOg5fYXL1iR71jIzZPWwRK+wT7f+4Ld6qs15T1ol1jV ligc2017@github-opencode-agents
+> ```
+
+**第三步**：设置私钥文件权限（Windows 必须，否则 SSH 拒绝使用）：
+
+```powershell
+$keyFile = "$env:USERPROFILE\.ssh\id_ed25519_github"
+# 移除继承权限，只保留当前用户的完全控制
+icacls $keyFile /inheritance:r /grant:r "${env:USERNAME}:F" | Out-Null
+```
+
+**第四步**：写入 SSH config：
+
+```powershell
 @"
 Host github.com
     HostName ssh.github.com
@@ -271,30 +302,54 @@ Host github.com
 "@ | Set-Content "$env:USERPROFILE\.ssh\config" -Encoding UTF8
 ```
 
-> **为什么用 443 端口**：普通 SSH 走 22 端口，很多网络环境（公司/学校/部分代理）会屏蔽 22 端口。
-> 443 端口是 HTTPS 端口，几乎不会被屏蔽。
+**第五步**：验证：
 
-### 7.3 查看公钥，添加到 GitHub
+```powershell
+ssh -T git@github.com -o StrictHostKeyChecking=no
+# 期望输出：Hi ligc2017! You've successfully authenticated
+```
+
+---
+
+### 方案 B：生成新密钥并添加到 GitHub
+
+**第一步**：生成新密钥对：
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.ssh" | Out-Null
+ssh-keygen -t ed25519 -C "opencode-agents" -f "$env:USERPROFILE\.ssh\id_ed25519_github" -q -N '""'
+```
+
+**第二步**：配置 SSH（443 端口，绕过防火墙）：
+
+```powershell
+@"
+Host github.com
+    HostName ssh.github.com
+    Port 443
+    User git
+    IdentityFile $env:USERPROFILE/.ssh/id_ed25519_github
+    IdentitiesOnly yes
+"@ | Set-Content "$env:USERPROFILE\.ssh\config" -Encoding UTF8
+```
+
+**第三步**：查看新公钥：
 
 ```powershell
 cat "$env:USERPROFILE\.ssh\id_ed25519_github.pub"
 ```
 
-复制输出的内容，然后：
+复制输出，然后添加到 GitHub：
 
 1. 打开 https://github.com/settings/ssh/new
-2. Title：`opencode-windows-agents`
+2. Title：`opencode-windows-新机器名称`
 3. Key type：`Authentication Key`
 4. Key：粘贴上面复制的公钥
 5. 点击 **Add SSH key**
 
-> **当前主力机公钥**（Administrator@本机，已添加到 GitHub）：
->
-> ```
-> ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOOg5fYXL1iR71jIzZPWwRK+wT7f+4Ld6qs15T1ol1jV ligc2017@github-opencode-agents
-> ```
->
-> **新机器迁移时**：如果不想重新生成密钥，可以直接复制主力机的 `id_ed25519_github`（私钥）和 `id_ed25519_github.pub`（公钥）到新机器的 `%USERPROFILE%\.ssh\` 目录，无需再次添加到 GitHub。
+> **为什么用 443 端口**：普通 SSH 走 22 端口，很多网络环境（公司/学校/部分代理）会屏蔽 22 端口，443 端口是 HTTPS 端口，几乎不会被屏蔽。
+
+---
 
 ### 7.4 验证连接
 
