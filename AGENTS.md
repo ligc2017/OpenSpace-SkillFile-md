@@ -43,6 +43,40 @@ openspace_execute_task(
 - 技能以 SKILL.md 形式存储在 `C:\OpenSpace\openspace\skills\<skill-name>\SKILL.md`
 - 每次退出 opencode 时，技能文件会自动通过 git 同步到 GitHub
 - GitHub 仓库：`git@github.com:ligc2017/OpenSpace-SkillFile-md.git`
+- **自动提取**：opencode 退出后，`extract_skill.py` 会自动用本地 Ollama 分析最近 session 并提取技能
+
+## 对话续作规则
+
+### 每次对话结束前（强制）
+在完成用户请求后，如果工作**未全部完成**，必须将剩余任务写入 `CONTINUITY.md`：
+
+```
+C:\Users\Administrator\.config\opencode\CONTINUITY.md
+```
+
+写入格式：
+```markdown
+## 待续任务
+- [ ] 任务描述1
+- [ ] 任务描述2
+
+## 上下文摘要
+- 项目路径：...
+- 关键文件：...
+- 当前状态：...
+```
+
+### 每次对话开始时（强制）
+1. 读取 `C:\Users\Administrator\.config\opencode\CONTINUITY.md`
+2. 如果有未完成任务（`- [ ]`），**立即开始执行**，无需等用户再次说明
+3. 完成后将对应任务标记为 `- [x]`，并更新文件
+
+### 自动技能提取说明
+- `opencode-launch.ps1` 启动时会开启 FileSystemWatcher 后台进程监听 skills 目录
+- opencode 退出后自动调用 `extract_skill.py` 分析最近对话，用 Ollama 提取可复用技能
+- 新写入的 SKILL.md 会被 watcher 自动 `git push` 到 GitHub
+- 提取脚本路径：`C:\Users\Administrator\.config\opencode\extract_skill.py`
+- 使用模型：`qwen2.5-coder:14b`（本地 Ollama）
 
 When making function calls using tools that accept array or object parameters ensure those are structured using JSON. For example:
 <example_complex_tool>
